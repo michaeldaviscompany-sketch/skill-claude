@@ -4,7 +4,7 @@
 // → textures redimensionnées en WebP → compression meshopt. L'original n'est jamais modifié.
 import { NodeIO } from '@gltf-transform/core'
 import { ALL_EXTENSIONS, EXTMeshoptCompression } from '@gltf-transform/extensions'
-import { dedup, prune, weld, simplify, textureCompress, meshopt, resample } from '@gltf-transform/functions'
+import { dedup, prune, weld, simplifyPrimitive, textureCompress, meshopt, resample } from '@gltf-transform/functions'
 import sharp from 'sharp'
 import { MeshoptEncoder, MeshoptSimplifier } from 'meshoptimizer'
 import fs from 'node:fs'
@@ -44,12 +44,33 @@ if (inspectOnly) {
   process.exit(0)
 }
 
-const ratio = Number(ratioArg ?? 0.5)
+const scale = Number(ratioArg ?? 1)
+// 1) Doublons basse résolution superposés (LOD « -1 » / « __lr_ ») : source de z-fighting
+let removed = 0
+for (const n of root.listNodes()) {
+  if (/(__lr_|-1_)/.test(n.getName())) { n.dispose(); removed++ }
+}
+console.log('LOD dupliqués supprimés :', removed)
+await doc.transform(dedup(), prune(), weld())
+// 2) Simplification par famille de pièces : la carrosserie garde sa finesse,
+//    l'habitacle (vu de loin, derrière le vitrage) est allégé davantage.
+const ratioFor = (name) => {
+  const n = name.toLowerCase()
+  if (/^(int_|dash_|seat_|door_[lr]_|stitch|degree|cinture|key|airbag|button_bump|sw_|996_)/.test(n)) return 0.22
+  if (/(wheel_|tyre_|brake_|disc_)/.test(n)) return 0.3
+  if (/(headlights|taillights|light_cup|light_plastic)/.test(n)) return 0.3
+  if (/(carpaint|hood|object0|plastic_hg_large|plastic_large)/.test(n)) return 0.6
+  return 0.45
+}
+for (const node of root.listNodes()) {
+  const mesh = node.getMesh(); if (!mesh) continue
+  const ratio = Math.min(1, ratioFor(node.getName()) * scale)
+  for (const prim of mesh.listPrimitives()) {
+    if (tris(prim) < 400) continue
+    simplifyPrimitive(prim, { simplifier: MeshoptSimplifier, ratio, error: 0.0006, lockBorder: true })
+  }
+}
 await doc.transform(
-  dedup(),
-  prune(),
-  weld(),
-  simplify({ simplifier: MeshoptSimplifier, ratio, error: 0.0008, lockBorder: true }),
   textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [1024, 1024] }),
   resample(),
   prune(),

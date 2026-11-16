@@ -32,7 +32,12 @@ export const useStore = create<State>((set, get) => ({
   aero: 'low',
   airflow: true,
   focus: null,
-  quality: 'high',
+  // ?lite force la qualité basse (tests headless sans GPU) ; mobiles : qualité basse d'emblée
+  quality:
+    typeof window !== 'undefined' &&
+    (new URLSearchParams(window.location.search).has('lite') || window.matchMedia('(pointer: coarse)').matches)
+      ? 'low'
+      : 'high',
   reducedMotion:
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   set: (p) => set(p),

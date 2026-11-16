@@ -30,12 +30,20 @@ const fs = require('fs')
       window.__lenisJump?.(top + len * Number(frac))
     }, [id, frac])
     await page.waitForTimeout(3500)
-    const info = await page.evaluate(() => {
+    // métriques d'UNE image complète (env, réflexion, scène, post) : compteur non remis à zéro entre les passes
+    const info = await page.evaluate(async () => {
       const gl = window.__gl
-      return gl ? { calls: gl.info.render.calls, tris: gl.info.render.triangles, geos: gl.info.memory.geometries, tex: gl.info.memory.textures } : null
+      if (!gl) return null
+      gl.info.autoReset = false
+      await new Promise((r) => requestAnimationFrame(r))
+      gl.info.reset()
+      await new Promise((r) => requestAnimationFrame(r))
+      const o = { calls: gl.info.render.calls, tris: gl.info.render.triangles, geos: gl.info.memory.geometries, tex: gl.info.memory.textures }
+      gl.info.autoReset = true
+      return o
     })
     const name = `${out}/${id}-${frac}.png`
-    await page.screenshot({ path: name })
+    await page.screenshot({ path: name, timeout: 180000 })
     console.log(name, JSON.stringify(info))
   }
   console.log('LOGS:\n' + logs.slice(0, 40).join('\n'))

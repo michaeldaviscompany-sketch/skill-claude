@@ -22,7 +22,7 @@ export function Hero({ started }: { started: boolean }) {
   useGSAP(
     () => {
       if (!started) return
-      const split = new SplitText('.hero__title .line', { type: 'chars', mask: 'chars' })
+      const split = new SplitText('.hero__title .line', { type: 'words,chars', mask: 'chars' })
       const tl = gsap.timeline({ delay: 2.2 })
       tl.from(split.chars, { yPercent: 110, duration: 1.1, ease: 'expo.out', stagger: 0.022 })
       tl.from('.hero__eyebrow, .hero__figures li, .hero__cue', { opacity: 0, y: 14, duration: 0.9, ease: 'power3.out', stagger: 0.06 }, '-=0.7')
@@ -425,6 +425,7 @@ function lapTime(p: number) {
 
 export function Performance() {
   const p = useSectionProgress('performance')
+  const compact = typeof window !== 'undefined' && window.matchMedia('(max-width: 760px)').matches
   const k = (a: number, b: number) => Math.min(1, Math.max(0, (p - a) / (b - a)))
   const ease = (x: number) => 1 - Math.pow(1 - x, 3)
   const P = PERFORMANCE
@@ -481,7 +482,7 @@ export function Performance() {
               </span>
             </div>
           </div>
-          <div className="downforce" style={{ opacity: k(0.52, 0.6) }}>
+          <div className="downforce" style={{ opacity: k(0.52, 0.6) * (compact ? 1 - k(0.68, 0.72) : 1) }}>
             <p className="mono downforce__t">Appui aérodynamique total</p>
             {P.downforce.map((d, i) => (
               <div className="downforce__bar" key={d.kmh}>
@@ -637,7 +638,7 @@ export function Finale() {
   const root = useRef<HTMLElement>(null)
   useGSAP(
     () => {
-      const split = new SplitText('.finale__title', { type: 'chars', mask: 'chars' })
+      const split = new SplitText('.finale__title', { type: 'words,chars', mask: 'chars' })
       gsap.from(split.chars, {
         yPercent: 120,
         ease: 'expo.out',

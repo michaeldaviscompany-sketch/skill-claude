@@ -32,13 +32,16 @@ export function Experience() {
     >
       <PerformanceMonitor onDecline={() => set({ quality: 'low' })} flipflops={2} />
       <AdaptiveDpr pixelated={false} />
+      <fog attach="fog" args={['#050506', 13, 34]} />
       <Cyclorama />
       <StudioEnvironment />
       <Suspense fallback={null}>
         <Car />
-        <Monumental />
         <ReadySignal />
         <Preload all />
+      </Suspense>
+      <Suspense fallback={null}>
+        <Monumental />
       </Suspense>
       <Floor />
       <SpeedStreaks />

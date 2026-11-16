@@ -9,12 +9,12 @@ import { frame, useStore, type FocusId } from '../store'
 
 // Plans rapprochés de la section Détails (espace voiture, m)
 export const FOCUS: Record<Exclude<FocusId, null>, { pos: [number, number, number]; target: [number, number, number]; fov: number }> = {
-  wing: { pos: [-1.9, 2.1, -4.0], target: [0, 1.22, -1.85], fov: 24 },
-  nostrils: { pos: [0.9, 2.5, 3.2], target: [0, 0.82, 1.25], fov: 24 },
-  louvres: { pos: [2.6, 1.25, 2.4], target: [0.8, 0.72, 1.1], fov: 22 },
-  wheel: { pos: [2.45, 0.5, 2.0], target: [0.85, 0.36, 1.22], fov: 20 },
-  diffuser: { pos: [-0.9, 0.36, -4.4], target: [0, 0.38, -2.0], fov: 26 },
-  cockpit: { pos: [0.55, 1.45, -0.6], target: [-0.1, 0.9, 0.6], fov: 40 },
+  wing: { pos: [-2.2, 2.2, -4.3], target: [0, 1.2, -1.9], fov: 24 },
+  nostrils: { pos: [-0.9, 2.6, 3.4], target: [0, 0.8, 1.35], fov: 24 },
+  louvres: { pos: [-2.7, 1.3, 2.3], target: [-0.8, 0.72, 1.05], fov: 22 },
+  wheel: { pos: [-2.6, 0.55, 2.1], target: [-0.88, 0.36, 1.22], fov: 20 },
+  diffuser: { pos: [-1.4, 0.75, -5.6], target: [0, 0.45, -2.0], fov: 26 },
+  cockpit: { pos: [-0.12, 1.06, -0.42], target: [0.36, 0.8, 0.45], fov: 58 },
 }
 
 const ORBIT_SECTIONS = new Set(['configurator', 'details'])
@@ -66,11 +66,11 @@ export function CameraRig() {
     // Cadrage décentré : le sujet laisse la place aux panneaux de texte
     const portrait = aspect < 1.2
     const wantX = f || portrait ? 0 : shot.sx
-    const wantY = portrait && st.section !== 'hero' && st.section !== 'finale' ? -0.17 : 0
+    const wantY = f ? 0 : portrait ? (st.section === 'finale' ? 0 : 0.17) : shot.sy
     damp(offset.current, 'x', wantX, 0.35, dt)
     damp(offset.current, 'y', wantY, 0.35, dt)
     if (Math.abs(offset.current.x) > 1e-4 || Math.abs(offset.current.y) > 1e-4)
-      camera.setViewOffset(size.width, size.height, -offset.current.x * size.width, -offset.current.y * size.height, size.width, size.height)
+      camera.setViewOffset(size.width, size.height, -offset.current.x * size.width, offset.current.y * size.height, size.width, size.height)
     else camera.clearViewOffset()
 
     // L'utilisateur manipule : OrbitControls (mis à jour par drei) a la main

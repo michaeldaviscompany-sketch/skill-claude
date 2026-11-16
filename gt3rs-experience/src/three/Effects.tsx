@@ -62,7 +62,7 @@ export function Effects() {
     <EffectComposer multisampling={0} enableNormalPass={false}>
       <SpeedEffect />
       <Bloom mipmapBlur intensity={0.55} luminanceThreshold={1.05} luminanceSmoothing={0.15} radius={0.7} />
-      <ToneMapping mode={ToneMappingMode.AGX} />
+      <ToneMapping mode={ToneMappingMode.NEUTRAL} />
       <Vignette offset={0.28} darkness={0.72} eskil={false} />
       <Noise opacity={0.045} premultiply blendFunction={BlendFunction.SCREEN} />
       {quality === 'high' ? <SMAA /> : <></>}

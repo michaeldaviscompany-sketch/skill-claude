@@ -22,6 +22,8 @@ export type Shot = {
   yaw: number
   /** décalage de cadrage (fraction de largeur) : >0 pousse le sujet à droite */
   sx: number
+  /** décalage vertical : >0 remonte le sujet dans le cadre */
+  sy: number
 }
 
 const base: Shot = {
@@ -36,18 +38,19 @@ const base: Shot = {
   type: 0,
   yaw: 0,
   sx: 0,
+  sy: 0,
 }
 
 const s = (p: Partial<Shot>): Shot => ({ ...base, ...p })
 
 export const SHOTS = {
-  heroIntro: s({ pos: [0.0, 0.75, 9.8], target: [0, 0.62, 0], fov: 24, type: 1, rim: 1, red: 0.35, studio: 0.85 }),
-  heroSide: s({ pos: [6.2, 1.15, 4.6], target: [0, 0.55, 0.1], fov: 28, type: 0.35, rim: 0.8 }),
+  heroIntro: s({ pos: [0.0, 0.75, 9.8], target: [0, 0.62, 0], fov: 24, type: 1, rim: 1, red: 0.25, studio: 0.85, sy: 0.1 }),
+  heroSide: s({ pos: [6.2, 1.15, 4.6], target: [0, 0.55, 0.1], fov: 28, type: 0.35, rim: 0.8, sy: 0.1 }),
   wing: s({ pos: [-3.3, 2.35, -5.4], target: [0, 1.12, -1.65], fov: 26, rim: 0.9, red: 0.45 , sx: 0.13}),
   nostrils: s({ pos: [1.4, 3.7, 4.3], target: [0, 0.75, 1.15], fov: 24 , sx: 0.13}),
   louvres: s({ pos: [3.9, 1.05, 3.1], target: [0.7, 0.68, 1.05], fov: 22 , sx: 0.13}),
   fins: s({ pos: [3.4, 3.1, -2.1], target: [0.2, 1.05, -0.45], fov: 24 , sx: 0.13}),
-  diffuser: s({ pos: [-1.2, 0.42, -5.6], target: [0, 0.42, -1.9], fov: 26, red: 0.6, rim: 1 , sx: 0.13}),
+  diffuser: s({ pos: [-2.2, 0.85, -6.9], target: [0, 0.55, -1.9], fov: 26, red: 0.45, rim: 1, sx: 0.13 }),
   aero: s({ pos: [-6.4, 1.9, 1.8], target: [0, 0.75, -0.35], fov: 30, air: 1, studio: 0.55, rim: 0.5 , sx: 0.1}),
   chassis: s({ pos: [3.3, 0.48, 3.6], target: [0.75, 0.42, 1.2], fov: 24, studio: 0.9 , sx: 0.13}),
   engine: s({ pos: [0.4, 2.6, -6.4], target: [0, 0.95, -1.5], fov: 26, red: 0.7, rim: 1 , sx: 0.13}),
@@ -120,6 +123,7 @@ export function mixShots(a: Shot, b: Shot, t: number, out: Shot): Shot {
   out.type = lerp(a.type, b.type, k)
   out.yaw = lerp(a.yaw, b.yaw, k)
   out.sx = lerp(a.sx, b.sx, k)
+  out.sy = lerp(a.sy, b.sy, k)
   return out
 }
 

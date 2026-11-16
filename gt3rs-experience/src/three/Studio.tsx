@@ -1,7 +1,7 @@
-import { useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Environment, MeshReflectorMaterial } from '@react-three/drei'
-import { AdditiveBlending, BackSide, Color, DoubleSide, Mesh, MeshBasicMaterial, ShaderMaterial } from 'three'
+import { AdditiveBlending, BackSide, Color, DoubleSide, InstancedMesh, Object3D, ShaderMaterial } from 'three'
 import { damp } from 'maath/easing'
 import { shotAt } from '../scroll/scroll'
 import { frame, useStore } from '../store'
@@ -11,7 +11,7 @@ import { frame, useStore } from '../store'
 // construit en temps réel (softbox, bandes, contre-jours) dont l'intensité suit
 // la chorégraphie. Rien n'est « peint » : c'est de l'éclairage par l'image (IBL).
 // ---------------------------------------------------------------------------
-type Panel = { pos: [number, number, number]; rot: [number, number, number]; scale: [number, number, number]; color: string; role: 'studio' | 'rim' | 'red' | 'sweep' }
+type Panel = { pos: [number, number, number]; rot: [number, number, number]; scale: [number, number, number]; color: string; role: 'studio' | 'rim' | 'red' | 'sweep' | 'fill' }
 
 const PANELS: Panel[] = [
   // Plafond : trois longues bandes (le « strip light » de la photo automobile)
@@ -19,57 +19,75 @@ const PANELS: Panel[] = [
   { pos: [-2.4, 5.6, 0], rot: [Math.PI / 2, 0.25, 0], scale: [0.6, 12, 1], color: '#ffffff', role: 'studio' },
   { pos: [2.4, 5.6, 0], rot: [Math.PI / 2, -0.25, 0], scale: [0.6, 12, 1], color: '#ffffff', role: 'studio' },
   // Grandes softbox latérales
-  { pos: [-9, 2.2, 1], rot: [0, Math.PI / 2, 0], scale: [8, 2.6, 1], color: '#f4f6ff', role: 'studio' },
-  { pos: [9, 2.6, -1], rot: [0, -Math.PI / 2, 0], scale: [8, 1.4, 1], color: '#ffffff', role: 'studio' },
+  { pos: [-8, 2.4, 1], rot: [0, Math.PI / 2, 0], scale: [10, 4, 1], color: '#f4f6ff', role: 'studio' },
+  { pos: [8, 2.6, -1], rot: [0, -Math.PI / 2, 0], scale: [10, 2.6, 1], color: '#ffffff', role: 'studio' },
+  // Réflecteurs bas (« bounce ») : éclairent les flancs et les jantes
+  { pos: [0, 0.02, 0], rot: [-Math.PI / 2, 0, 0], scale: [9, 5, 1], color: '#8a8f97', role: 'fill' },
   // Contre-jours
   { pos: [0, 2.5, -10], rot: [0, 0, 0], scale: [10, 0.35, 1], color: '#ffffff', role: 'rim' },
-  { pos: [0, 0.6, 10], rot: [0, Math.PI, 0], scale: [12, 0.18, 1], color: '#ffffff', role: 'rim' },
+  { pos: [0, 3.2, 10], rot: [0, Math.PI, 0], scale: [12, 0.14, 1], color: '#ffffff', role: 'rim' },
+  // Dôme de remplissage très doux (lève les ombres sans aplatir les reflets)
+  { pos: [0, 9, 0], rot: [Math.PI / 2, 0, 0], scale: [30, 30, 1], color: '#c9d0da', role: 'fill' },
   // Accent rouge (sol / arrière)
   { pos: [-7, 0.4, -6], rot: [0, Math.PI / 4, 0], scale: [6, 0.5, 1], color: '#ff1a1a', role: 'red' },
   // Bande de balayage (animée)
   { pos: [0, 3.5, 0], rot: [0, Math.PI / 2, 0], scale: [0.25, 7, 1], color: '#ffffff', role: 'sweep' },
 ]
 
+/** Tous les panneaux dans UN mesh instancié : 1 appel de rendu par face de cubemap au lieu de 12. */
 function StudioPanels() {
-  const refs = useRef<(Mesh | null)[]>([])
+  const ref = useRef<InstancedMesh>(null!)
   const levels = useRef({ studio: 0, rim: 0, red: 0 })
   const base = useMemo(() => PANELS.map((p) => new Color(p.color)), [])
+  const tmpC = useMemo(() => new Color(), [])
+  const dummy = useMemo(() => new Object3D(), [])
+  const sweepIndex = PANELS.findIndex((p) => p.role === 'sweep')
+
+  const place = (i: number, z?: number) => {
+    const p = PANELS[i]
+    dummy.position.set(p.pos[0], p.pos[1], z ?? p.pos[2])
+    dummy.rotation.set(...p.rot)
+    dummy.scale.set(...p.scale)
+    dummy.updateMatrix()
+    ref.current.setMatrixAt(i, dummy.matrix)
+  }
+
+  useLayoutEffect(() => {
+    PANELS.forEach((_, i) => place(i))
+    ref.current.instanceMatrix.needsUpdate = true
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useFrame((state, dt) => {
     const shot = shotAt(frame.scrollY)
-    const intro = frame.intro
     const L = levels.current
-    damp(L, 'studio', shot.studio * Math.min(1, intro * 1.4), 0.25, dt)
+    damp(L, 'studio', shot.studio * Math.min(1, frame.intro * 1.4), 0.25, dt)
     damp(L, 'rim', shot.rim, 0.3, dt)
     damp(L, 'red', shot.red, 0.3, dt)
     const t = state.clock.elapsedTime
     PANELS.forEach((p, i) => {
-      const m = refs.current[i]
-      if (!m) return
-      const mat = m.material as MeshBasicMaterial
       let k = 0
       if (p.role === 'studio') k = L.studio * (i === 0 ? 3.2 : 2.2)
       if (p.role === 'rim') k = L.rim * 4
-      if (p.role === 'red') k = L.red * 6
+      if (p.role === 'red') k = L.red * 2.6
+      if (p.role === 'fill') k = L.studio * 0.85
       if (p.role === 'sweep') {
-        // Une bande lumineuse traverse la carrosserie : révèle les volumes.
+        // une bande lumineuse traverse la carrosserie et révèle les volumes
         const sweep = ((t * 0.12) % 1) * 2 - 1
-        m.position.z = sweep * 9
+        place(i, sweep * 9)
         k = (0.6 + L.rim * 2.5) * (1 - Math.abs(sweep)) * 3
       }
-      mat.color.copy(base[i]).multiplyScalar(k)
+      ref.current.setColorAt(i, tmpC.copy(base[i]).multiplyScalar(k))
     })
+    if (sweepIndex >= 0) ref.current.instanceMatrix.needsUpdate = true
+    if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true
   })
 
   return (
-    <>
-      {PANELS.map((p, i) => (
-        <mesh key={i} ref={(m) => (refs.current[i] = m)} position={p.pos} rotation={p.rot} scale={p.scale}>
-          <planeGeometry />
-          <meshBasicMaterial color={p.color} side={DoubleSide} toneMapped={false} />
-        </mesh>
-      ))}
-    </>
+    <instancedMesh ref={ref} args={[undefined, undefined, PANELS.length]} frustumCulled={false}>
+      <planeGeometry />
+      <meshBasicMaterial side={DoubleSide} toneMapped={false} />
+    </instancedMesh>
   )
 }
 
@@ -105,7 +123,7 @@ void main() {
   // horizon : fine ligne lumineuse qui sépare sol et fond
   col += vec3(0.08) * exp(-abs(y - 0.02) * 60.0) * uStudio;
   // accent rouge bas, côté arrière
-  col += vec3(0.25, 0.01, 0.01) * uRed * smoothstep(0.25, -0.05, y) * smoothstep(-0.2, -0.9, vDir.z) * 0.6;
+  col += vec3(0.16, 0.006, 0.006) * uRed * smoothstep(0.25, -0.05, y) * smoothstep(-0.2, -0.9, vDir.z) * 0.5;
   col += (h(gl_FragCoord.xy + uTime) - 0.5) * 0.012;
   gl_FragColor = vec4(col, 1.0);
 }`
@@ -141,6 +159,13 @@ export function Cyclorama() {
 // ---------------------------------------------------------------------------
 export function Floor() {
   const quality = useStore((s) => s.quality)
+  if (quality === 'low')
+    return (
+      <mesh rotation-x={-Math.PI / 2}>
+        <planeGeometry args={[60, 60]} />
+        <meshPhysicalMaterial color="#050506" roughness={0.75} metalness={0.1} clearcoat={0.5} clearcoatRoughness={0.3} envMapIntensity={0.18} />
+      </mesh>
+    )
   return (
     <mesh rotation-x={-Math.PI / 2} position-y={0} receiveShadow>
       <planeGeometry args={[60, 60]} />

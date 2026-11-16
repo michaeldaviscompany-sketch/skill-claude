@@ -44,30 +44,48 @@ class GLBoundary extends Component<{ children: ReactNode }, { error: boolean }> 
 
 function Header() {
   const section = useStore((s) => s.section)
+  const [open, setOpen] = useState(false)
   const idx = CHAPTERS.findIndex((c) => c[0] === section)
   const cur = CHAPTERS[Math.max(0, idx)]
+  useEffect(() => {
+    if (!open) return
+    const close = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [open])
   return (
     <header className="hud">
       <a className="hud__brand" href="#hero" onClick={(e) => (e.preventDefault(), scrollToSection('hero'))}>
         <strong>911 GT3 RS</strong>
         <span className="mono">Type 992</span>
       </a>
-      <div className="hud__chap mono" aria-live="polite">
-        <span>{cur[1]}</span>
-        <span className="hud__sep" />
-        <span>{cur[2]}</span>
+      <div className="hud__nav">
+        <button className="hud__chap mono" aria-expanded={open} aria-controls="chapters" onClick={() => setOpen(!open)}>
+          <span>{cur[1]}</span>
+          <span className="hud__sep" />
+          <span>{cur[2]}</span>
+          <span className="hud__caret" aria-hidden>
+            {open ? '−' : '+'}
+          </span>
+        </button>
+        <nav id="chapters" className={`chapters ${open ? 'is-open' : ''}`} aria-label="Chapitres" hidden={!open}>
+          {CHAPTERS.map(([id, n, label]) => (
+            <button
+              key={id}
+              className={id === section ? 'is-on' : ''}
+              onClick={() => {
+                setOpen(false)
+                scrollToSection(id, id === 'hero' ? 0 : 0.02)
+              }}
+            >
+              <span className="mono">{n}</span> {label}
+            </button>
+          ))}
+        </nav>
       </div>
       <a className="hud__src mono" href="#sources" onClick={(e) => (e.preventDefault(), document.getElementById('sources')?.scrollIntoView())}>
         Sources
       </a>
-      <nav className="rail" aria-label="Chapitres">
-        {CHAPTERS.map(([id, n, label]) => (
-          <button key={id} className={id === section ? 'is-on' : ''} onClick={() => scrollToSection(id, id === 'hero' ? 0 : 0.02)} aria-label={`${n} ${label}`}>
-            <span className="mono">{n}</span>
-            <em>{label}</em>
-          </button>
-        ))}
-      </nav>
     </header>
   )
 }

@@ -117,7 +117,7 @@ float hAt(vec2 xz) {
 }
 
 vec3 flowPos(float t) {
-  float z = mix(5.2, -6.5, t);
+  float z = mix(4.2, -5.2, t);
   float x = aSeed.x;
   float h = hAt(vec2(x, z));
   float y = max(aSeed.y, h + 0.035 + aRand * 0.05);
@@ -135,17 +135,18 @@ void main() {
   float speed = 0.16 + aRand * 0.05;
   float t = fract(aSeed.z + uTime * speed);
   vec3 p0 = flowPos(t);
-  vec3 p1 = flowPos(t + 0.035);
+  vec3 p1 = flowPos(t + 0.075);
   vec3 dir = p1 - p0;
   // ruban orienté face caméra
   vec3 wp = (modelMatrix * vec4(p0, 1.0)).xyz;
   vec3 view = transpose(mat3(modelMatrix)) * normalize(cameraPosition - wp); // vue → espace voiture
-  vec3 side = normalize(cross(dir, view)) * 0.0045;
+  vec3 side = normalize(cross(dir, view)) * 0.0028;
   vec3 pos = mix(p0, p1, position.y + 0.5) + side * position.x * 2.0;
   vAlong = position.y + 0.5;
-  vAlpha = smoothstep(0.0, 0.08, t) * smoothstep(1.0, 0.85, t);
+  vAlpha = smoothstep(0.0, 0.08, t) * smoothstep(0.9, 0.62, t);
   float h = hAt(p0.xz);
-  vHeat = clamp((p0.y - aSeed.y) / 0.6, 0.0, 1.0) + smoothstep(uWingZ + 0.4, uWingZ - 0.4, p0.z) * smoothstep(0.4, 0.0, abs(p0.y - uWingY)) * 0.8;
+  // rouge = zone de l'aileron (appui), blanc ailleurs
+  vHeat = smoothstep(uWingZ + 0.7, uWingZ - 0.2, p0.z) * smoothstep(0.55, 0.05, abs(p0.y - uWingY)) * smoothstep(1.1, 0.4, abs(p0.x));
   gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
 }`
 
@@ -153,7 +154,7 @@ const frag = /* glsl */ `
 uniform float uOpacity;
 varying float vAlpha; varying float vHeat; varying float vAlong;
 void main() {
-  float a = vAlpha * vAlong * vAlong * uOpacity;
+  float a = vAlpha * vAlong * uOpacity * 0.85;
   vec3 cold = vec3(0.75, 0.82, 0.95);
   vec3 hot = vec3(1.0, 0.12, 0.08);
   vec3 c = mix(cold, hot, clamp(vHeat, 0.0, 1.0));
@@ -162,7 +163,7 @@ void main() {
 
 export function Airflow({ field, wingZ, wingY }: { field: HeightField; wingZ: number; wingY: number }) {
   const quality = useStore((s) => s.quality)
-  const count = quality === 'high' ? 2600 : 1100
+  const count = quality === 'high' ? 1800 : 900
   const { geo, mat } = useMemo(() => {
     const plane = new PlaneGeometry(1, 1, 1, 1)
     const g = new InstancedBufferGeometry()
@@ -171,8 +172,8 @@ export function Airflow({ field, wingZ, wingY }: { field: HeightField; wingZ: nu
     const seeds = new Float32Array(count * 3)
     const rand = new Float32Array(count)
     for (let i = 0; i < count; i++) {
-      seeds[i * 3] = (Math.random() * 2 - 1) * 1.15
-      seeds[i * 3 + 1] = 0.12 + Math.pow(Math.random(), 1.6) * 1.45
+      seeds[i * 3] = (Math.random() * 2 - 1) * 0.95
+      seeds[i * 3 + 1] = 0.1 + Math.pow(Math.random(), 1.8) * 1.3
       seeds[i * 3 + 2] = Math.random()
       rand[i] = Math.random()
     }

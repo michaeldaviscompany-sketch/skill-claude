@@ -2,7 +2,6 @@ import {
   Color,
   Matrix4,
   MeshPhysicalMaterial,
-  Vector3,
   type IUniform,
   type WebGLProgramParametersWithUniforms,
 } from 'three'
@@ -60,23 +59,22 @@ export type PaintUniforms = {
   uMetalB: IUniform<number>
   uWipe: IUniform<number>
   uWeissach: IUniform<number>
-  uBoxMin: IUniform<Vector3[]>
-  uBoxMax: IUniform<Vector3[]>
-  uBoxCount: IUniform<number>
 }
 
-export function createPaintMaterial() {
-  const u: PaintUniforms = {
+export function createPaintUniforms(): PaintUniforms {
+  return {
     uColorA: { value: new Color('#a3aaac') },
     uColorB: { value: new Color('#a3aaac') },
     uMetalA: { value: 0 },
     uMetalB: { value: 0 },
     uWipe: { value: 1 },
     uWeissach: { value: 0 },
-    uBoxMin: { value: [new Vector3(), new Vector3(), new Vector3(), new Vector3(), new Vector3(), new Vector3()] },
-    uBoxMax: { value: [new Vector3(), new Vector3(), new Vector3(), new Vector3(), new Vector3(), new Vector3()] },
-    uBoxCount: { value: 0 },
   }
+}
+
+/** part = true : pièce concernée par le pack Weissach (bascule peinture ↔ carbone apparent). */
+export function createPaintMaterial(u: PaintUniforms, part = false) {
+  const partU = { uPart: { value: part ? 1 : 0 } }
   const mat = new MeshPhysicalMaterial({
     color: '#ffffff',
     metalness: 0,
@@ -86,7 +84,7 @@ export function createPaintMaterial() {
     envMapIntensity: 1.15,
   })
   mat.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, u, carUniforms)
+    Object.assign(shader.uniforms, u, carUniforms, partU)
     patchVertex(shader)
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -98,14 +96,9 @@ export function createPaintMaterial() {
         uniform vec3 uColorA; uniform vec3 uColorB;
         uniform float uMetalA; uniform float uMetalB;
         uniform float uWipe; uniform float uWeissach; uniform float uTime;
-        uniform vec3 uBoxMin[6]; uniform vec3 uBoxMax[6]; uniform int uBoxCount;
+        uniform float uPart;
         varying vec3 vCarPos; varying vec3 vCarNrm;
-        float gtSeam; float gtMetal; float gtCarbonMask; vec3 gtCarbonV;
-        float gtBox(vec3 p, vec3 mn, vec3 mx) {
-          vec3 a = smoothstep(mn - 0.015, mn + 0.015, p);
-          vec3 b = 1.0 - smoothstep(mx - 0.015, mx + 0.015, p);
-          return a.x * a.y * a.z * b.x * b.y * b.z;
-        }`,
+        float gtSeam; float gtMetal; float gtCarbonMask; vec3 gtCarbonV;`,
       )
       .replace(
         '#include <color_fragment>',
@@ -117,11 +110,9 @@ export function createPaintMaterial() {
         gtSeam = (1.0 - smoothstep(0.0, 0.045, abs(vCarPos.z - front))) * step(0.002, uWipe) * step(uWipe, 0.998);
         vec3 paint = mix(uColorA, uColorB, m);
         gtMetal = mix(uMetalA, uMetalB, m);
-        // Masque Weissach (carbone apparent) — apparition par balayage vertical
-        float mask = 0.0;
-        for (int i = 0; i < 6; i++) { if (i < uBoxCount) mask = max(mask, gtBox(vCarPos, uBoxMin[i], uBoxMax[i])); }
-        float wfront = mix(-0.2, 2.2, uWeissach) + n * 0.6;
-        gtCarbonMask = mask * smoothstep(wfront + 0.03, wfront - 0.03, vCarPos.y);
+        // Pack Weissach : la pièce passe en carbone apparent par un balayage avant → arrière
+        float wfront = mix(2.6, -2.6, uWeissach) + n * 0.5;
+        gtCarbonMask = uPart * smoothstep(wfront - 0.03, wfront + 0.03, vCarPos.z);
         gtCarbonV = gtCarbon(vCarPos, vCarNrm, 150.0);
         vec3 carbon = vec3(0.012, 0.013, 0.015) + vec3(0.05, 0.052, 0.058) * gtCarbonV.x * mix(0.7, 1.15, gtCarbonV.y);
         diffuseColor.rgb = mix(paint, carbon, gtCarbonMask);`,
@@ -153,8 +144,8 @@ export function createPaintMaterial() {
         totalEmissiveRadiance += vec3(1.0, 0.09, 0.06) * gtSeam * 6.0;`,
       )
   }
-  mat.customProgramCacheKey = () => 'gt-paint-v1'
-  return { mat, u }
+  mat.customProgramCacheKey = () => 'gt-paint-v2'
+  return mat
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +222,9 @@ export const createTyre = () =>
   new MeshPhysicalMaterial({ color: '#0d0d0e', metalness: 0, roughness: 0.82, sheen: 0.3, sheenRoughness: 0.8, sheenColor: new Color('#222222') })
 
 export const createRim = () =>
+  new MeshPhysicalMaterial({ color: '#7b7f85', metalness: 1, roughness: 0.3, clearcoat: 0.6, clearcoatRoughness: 0.1 })
+
+export const createDarkMetal = () =>
   new MeshPhysicalMaterial({ color: '#2a2c2f', metalness: 1, roughness: 0.32, clearcoat: 0.6, clearcoatRoughness: 0.12 })
 
 export const createBrushedAlu = () =>
@@ -250,6 +244,27 @@ export const createCaliper = () =>
 
 export const createInterior = () =>
   new MeshPhysicalMaterial({ color: '#111113', metalness: 0, roughness: 0.75, sheen: 0.4, sheenRoughness: 0.6, sheenColor: new Color('#333') })
+
+export const createChrome = () => new MeshPhysicalMaterial({ color: '#e8eaee', metalness: 1, roughness: 0.06 })
+
+export const createRedLens = () =>
+  new MeshPhysicalMaterial({ color: '#5a0608', metalness: 0, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.02, transparent: true, opacity: 0.92 })
+
+export const createUnder = () => new MeshPhysicalMaterial({ color: '#070708', metalness: 0, roughness: 0.9 })
+
+export const createMeshGrille = () => new MeshPhysicalMaterial({ color: '#0e0e10', metalness: 0.6, roughness: 0.5 })
+
+export const createInteriorPlastic = () => new MeshPhysicalMaterial({ color: '#141416', metalness: 0, roughness: 0.62 })
+
+export const createBelt = () => new MeshPhysicalMaterial({ color: '#101012', metalness: 0, roughness: 0.85, sheen: 0.5, sheenColor: new Color('#2a2a2a') })
+
+export const createStitch = () => new MeshPhysicalMaterial({ color: '#8d9096', metalness: 0, roughness: 0.7 })
+
+export const createYellow = () => new MeshPhysicalMaterial({ color: '#f5c400', metalness: 0, roughness: 0.5 })
+
+export const createScreen = () => new MeshPhysicalMaterial({ color: '#050608', emissive: new Color('#9fb2c8'), emissiveIntensity: 0.25, roughness: 0.1 })
+
+export const createSteelCage = () => new MeshPhysicalMaterial({ color: '#2b2d31', metalness: 0.7, roughness: 0.38, clearcoat: 0.4 })
 
 export const createLightEmissive = (color = '#ffffff', intensity = 0) =>
   new MeshPhysicalMaterial({ color: '#1a1a1a', emissive: new Color(color), emissiveIntensity: intensity, roughness: 0.2, toneMapped: true })
