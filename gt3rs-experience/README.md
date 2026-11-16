@@ -12,7 +12,39 @@ npm run dev        # développement
 npm run build && npm run preview
 ```
 
-Le modèle 3D optimisé doit se trouver dans `public/models/gt3rs.glb` (voir « Modèle 3D »).
+Le modèle 3D optimisé est versionné dans `public/models/gt3rs.glb` (4,8 Mo). Pour le régénérer depuis le GLB source :
+`npm run model -- source.glb public/models/gt3rs.glb`.
+
+## Aperçu
+
+| | |
+| --- | --- |
+| ![Hero](docs/captures/01-hero.jpg) | ![Design](docs/captures/02-design.jpg) |
+| ![Engineering](docs/captures/03-engineering-aero.jpg) | ![Performance](docs/captures/04-performance.jpg) |
+| ![Configuration](docs/captures/05-configuration.jpg) | ![Détails](docs/captures/06-details.jpg) |
+| ![Final](docs/captures/07-final.jpg) | ![Haute qualité](docs/captures/09-haute-qualite.jpg) |
+
+Mobile : `docs/captures/08-mobile.jpg`. Captures réalisées en rendu logiciel (sans GPU) : sur une vraie carte
+graphique, le sol réfléchissant, le SMAA et la pleine résolution sont actifs.
+
+## Tests
+
+```bash
+npm run build && npm run preview          # http://localhost:4173
+npm run test:visual                       # captures de chaque section + métriques WebGL
+npm run test:interact                     # teinte, pack Weissach, airbrake, plans rapprochés
+```
+
+`?lite` force la qualité basse (sol non réfléchissant, environnement 128 px) ; elle est aussi choisie
+automatiquement sur écran tactile et quand `PerformanceMonitor` détecte une chute d'images.
+
+## Performance mesurée
+
+| | Avant | Après |
+| --- | --- | --- |
+| Modèle | 114 Mo, 1,63 M triangles | 4,8 Mo, 625 k triangles (meshopt) |
+| Pièces fixes | 238 meshes | 21 meshes fusionnées par matériau |
+| Appels de rendu / image (env + scène + post) | ~300 | ~125 |
 
 ## Stack
 

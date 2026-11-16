@@ -498,9 +498,12 @@ export function Performance() {
           </div>
           <div className="lap" style={{ opacity: k(0.7, 0.78) }}>
             <p className="mono">Nürburgring‑Nordschleife · {P.nordschleife.km.toLocaleString('fr-FR')} km</p>
-            <strong className="lap__time mono">{lapTime(ease(k(0.72, 0.96)))}</strong>
+            <strong className={`lap__time mono ${k(0.72, 0.88) >= 1 ? 'is-final' : ''}`} aria-label={`Temps officiel ${P.nordschleife.time}`}>
+              {lapTime(ease(k(0.72, 0.88)))}
+            </strong>
             <p>
-              {P.nordschleife.driver} · {P.nordschleife.delta}, en présence d’un commissaire <Src id={P.nordschleife.src} />
+              Temps officiel {P.nordschleife.time} min · {P.nordschleife.driver} · {P.nordschleife.delta}, en présence d’un commissaire{' '}
+              <Src id={P.nordschleife.src} />
             </p>
           </div>
         </div>
